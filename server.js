@@ -10,23 +10,25 @@ app.use(express.static("public"));
 
 let accessToken = "";
 
+// LOGIN MICROSOFT
 app.get("/login", (req, res) => {
-  const authUrl =
-    `https://login.microsoftonline.com/common/oauth2/v2.0/authorize` +
+  const url =
+    "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize" +
     `?client_id=${process.env.CLIENT_ID}` +
-    `&response_type=code` +
+    "&response_type=code" +
     `&redirect_uri=${process.env.REDIRECT_URI}` +
-    `&response_mode=query` +
-    `&scope=Files.ReadWrite offline_access`;
+    "&response_mode=query" +
+    "&scope=Files.ReadWrite offline_access";
 
-  res.redirect(authUrl);
+  res.redirect(url);
 });
 
+// CALLBACK
 app.get("/callback", async (req, res) => {
   const code = req.query.code;
 
   const tokenRes = await fetch(
-    "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    "https://login.microsoftonline.com/consumers/oauth2/v2.0/token",
     {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -35,7 +37,7 @@ app.get("/callback", async (req, res) => {
         `&client_secret=${process.env.CLIENT_SECRET}` +
         `&code=${code}` +
         `&redirect_uri=${process.env.REDIRECT_URI}` +
-        `&grant_type=authorization_code`
+        "&grant_type=authorization_code"
     }
   );
 
@@ -45,6 +47,7 @@ app.get("/callback", async (req, res) => {
   res.redirect("/");
 });
 
+// ATUALIZAR EXCEL
 app.post("/atualizar", async (req, res) => {
   const { tipo, mes, valor } = req.body;
 
@@ -52,21 +55,22 @@ app.post("/atualizar", async (req, res) => {
   const coluna = String.fromCharCode(72 + Number(mes));
   const endereco = `${coluna}${linha}`;
 
-  const base =
+  const baseUrl =
     `https://graph.microsoft.com/v1.0/me/drive/items/${process.env.FILE_ID}` +
     `/workbook/worksheets('Abril')/range(address='${endereco}')`;
 
-  // 1️⃣ LER VALOR ATUAL
-  const atualRes = await fetch(base, {
+  // LER VALOR ATUAL
+  const atualRes = await fetch(baseUrl, {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
   const atual = await atualRes.json();
+  const atualValor = atual.values?.[0]?.[0] || 0;
 
-  const valorAtual = atual.values?.[0]?.[0] || 0;
-  const novoValor = Number(valorAtual) + Number(valor);
+  // SOMAR
+  const novoValor = Number(atualValor) + Number(valor);
 
-  // 2️⃣ GRAVAR SOMA
-  await fetch(base, {
+  // GRAVAR
+  await fetch(baseUrl, {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -79,4 +83,3 @@ app.post("/atualizar", async (req, res) => {
 });
 
 app.listen(process.env.PORT || 3000);
-``
