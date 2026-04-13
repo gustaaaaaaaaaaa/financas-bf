@@ -82,14 +82,14 @@ function login() {
 }
 
 async function enviar() {
-  const tipo = tipo.value;
-  const mes = mes.value;
-  const valor = valor.value;
-
   await fetch("/atualizar", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ tipo, mes, valor })
+    body: JSON.stringify({
+      tipo: tipo.value,
+      mes: mes.value,
+      valor: valor.value
+    })
   });
 
   alert("Excel atualizado ✅");
