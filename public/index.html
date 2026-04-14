@@ -98,7 +98,7 @@ function login() {
 }
 
 async function enviar() {
-  await fetch("/atualizar", {
+  const response = await fetch("/atualizar", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -108,7 +108,14 @@ async function enviar() {
     })
   });
 
-  alert("Excel atualizado ✅");
+  if (!response.ok) {
+    const erro = await response.text();
+    alert("ERRO ao gravar no Excel:\n\n" + erro);
+    return;
+  }
+
+  const data = await response.json();
+  alert("Excel atualizado ✅\nNovo valor: " + data.novoValor);
 }
 </script>
 
