@@ -12,13 +12,24 @@ app.use(express.static("public"));
    LOGIN MICROSOFT
    ========================= */
 app.get("/login", (req, res) => {
+  const { tipo, mes, valor } = req.query;
+
+  if (tipo === undefined || mes === undefined || valor === undefined) {
+    return res.send("Parâmetros ausentes no login");
+  }
+
+  const state = Buffer.from(
+    JSON.stringify({ tipo, mes, valor })
+  ).toString("base64");
+
   const url =
     "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize" +
     `?client_id=${process.env.CLIENT_ID}` +
     "&response_type=code" +
     `&redirect_uri=${process.env.REDIRECT_URI}` +
     "&response_mode=query" +
-    "&scope=Files.ReadWrite";
+    "&scope=Files.ReadWrite" +
+    `&state=${state}`;
 
   res.redirect(url);
 });
@@ -27,7 +38,15 @@ app.get("/login", (req, res) => {
    CALLBACK – LOGIN + GRAVA EXCEL
    ========================= */
 app.get("/callback", async (req, res) => {
-  const { code, tipo, mes, valor } = req.query;
+  const { code, state } = req.query;
+
+if (!code || !state) {
+  return res.send("Parâmetros ausentes");
+}
+
+const { tipo, mes, valor } = JSON.parse(
+  Buffer.from(state, "base64").toString("utf-8")
+);
 
   if (!code || tipo === undefined || mes === undefined || valor === undefined) {
     return res.send("Parâmetros ausentes");
