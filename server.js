@@ -49,6 +49,10 @@ app.get("/callback", async (req, res) => {
 
 // ATUALIZAR EXCEL
 app.post("/atualizar", async (req, res) => {
+  if (!accessToken) {
+    return res.status(401).send({ error: "Usuário não autenticado" });
+  }
+
   const { tipo, mes, valor } = req.body;
 
   const linha = 131 + Number(tipo);
@@ -64,6 +68,7 @@ app.post("/atualizar", async (req, res) => {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
   const atual = await atualRes.json();
+
   const atualValor = atual.values?.[0]?.[0] || 0;
 
   // SOMAR
