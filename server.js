@@ -8,10 +8,7 @@ const app = express();
 app.use(express.json());
 app.use(express.static("public"));
 
-let accessToken = "";
-let workbookSession = "";
-
-// LOGIN
+// LOGIN – apenas redireciona
 app.get("/login", (req, res) => {
   const url =
     "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize" +
@@ -19,15 +16,26 @@ app.get("/login", (req, res) => {
     "&response_type=code" +
     `&redirect_uri=${process.env.REDIRECT_URI}` +
     "&response_mode=query" +
-    "&scope=Files.ReadWrite offline_access";
+    "&scope=Files.ReadWrite";
 
   res.redirect(url);
 });
 
-// CALLBACK
-app.get("/callback", async (req, res) => {
+// CALLBACK → grava o code temporariamente no browser
+app.get("/callback", (req, res) => {
   const code = req.query.code;
+  res.redirect(`/?code=${code}`);
+});
 
+// ATUALIZAR EXCEL (STATELESS)
+app.post("/atualizar", async (req, res) => {
+  const { tipo, mes, valor, code } = req.body;
+
+  if (!code) {
+    return res.status(401).send("Código de autenticação ausente");
+  }
+
+  // 1️⃣ Trocar code por token
   const tokenRes = await fetch(
     "https://login.microsoftonline.com/consumers/oauth2/v2.0/token",
     {
@@ -43,35 +51,13 @@ app.get("/callback", async (req, res) => {
   );
 
   const tokenData = await tokenRes.json();
-  accessToken = tokenData.access_token;
+  const accessToken = tokenData.access_token;
 
-  // CRIAR SESSION DE WORKBOOK (OBRIGATÓRIO)
-  const sessionRes = await fetch(
-    `https://graph.microsoft.com/v1.0/me/drive/items/${process.env.FILE_ID}/workbook/createSession`,
-    {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ persistChanges: true })
-    }
-  );
-
-  const sessionData = await sessionRes.json();
-  workbookSession = sessionData.id;
-
-  res.redirect("/");
-});
-
-// ATUALIZAR EXCEL
-app.post("/atualizar", async (req, res) => {
-  if (!accessToken || !workbookSession) {
-    return res.status(401).send({ error: "Sessão inválida" });
+  if (!accessToken) {
+    return res.status(401).send("Token inválido");
   }
 
-  const { tipo, mes, valor } = req.body;
-
+  // 2️⃣ Calcular célula
   const linha = 131 + Number(tipo);
   const coluna = String.fromCharCode(72 + Number(mes));
   const endereco = `${coluna}${linha}`;
@@ -80,30 +66,21 @@ app.post("/atualizar", async (req, res) => {
     `https://graph.microsoft.com/v1.0/me/drive/items/${process.env.FILE_ID}` +
     `/workbook/worksheets('Abril')/range(address='${endereco}')`;
 
-  // LER VALOR
+  // 3️⃣ Ler valor atual
   const atualRes = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "workbook-session-id": workbookSession
-    }
+    headers: { Authorization: `Bearer ${accessToken}` }
   });
-
-  if (!atualRes.ok) {
-    const err = await atualRes.text();
-    return res.status(500).send(err);
-  }
-
   const atual = await atualRes.json();
   const atualValor = atual.values?.[0]?.[0] || 0;
+
+  // 4️⃣ Gravar soma
   const novoValor = Number(atualValor) + Number(valor);
 
-  // ESCREVER
   const patchRes = await fetch(url, {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      "workbook-session-id": workbookSession
+      "Content-Type": "application/json"
     },
     body: JSON.stringify({ values: [[novoValor]] })
   });
