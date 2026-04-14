@@ -98,19 +98,23 @@ function login() {
 }
 
 async function enviar() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get("code");
+
   const response = await fetch("/atualizar", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       tipo: tipo.value,
       mes: mes.value,
-      valor: valor.value
+      valor: valor.value,
+      code
     })
   });
 
   if (!response.ok) {
     const erro = await response.text();
-    alert("ERRO ao gravar no Excel:\n\n" + erro);
+    alert("ERRO:\n" + erro);
     return;
   }
 
