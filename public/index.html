@@ -5,22 +5,16 @@
   <title>Finanças BF</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- PWA básico -->
-  /manifest.json
+  <!-- PWA / iOS -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Finanças BF">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
-  <!--Ícone Padrão-->
-  /icon-192.png
-  /icon-512.png
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+  <link rel="manifest" href="/manifest.json">
 
-   <!-- iOS / Mobile -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-title" content="B&F" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-
-  /icon.192.png
-  /icon.512.png
-  
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, sans-serif;
@@ -28,11 +22,13 @@
       text-align: center;
       padding: 20px;
     }
+
     img {
       width: 180px;
       margin: 30px auto;
       display: block;
     }
+
     select, input, button {
       width: 100%;
       max-width: 320px;
@@ -43,20 +39,20 @@
       border: 1px solid #ccc;
       display: block;
     }
+
     button {
       background: #c9a24d;
       color: white;
       border: none;
       font-weight: bold;
+      cursor: pointer;
     }
   </style>
 </head>
 
 <body>
 
-  <img src="icon-512.png" />
-
-  <button onclick="login()">Entrar com Microsoft</button>
+  <img src="/icon-512.png" alt="Finanças BF" />
 
   <select id="tipo">
     <option value="0">Supermercado</option>
@@ -92,36 +88,30 @@
 
   <button onclick="enviar()">Adicionar despesa</button>
 
-<script>
-function login() {
-  window.location.href = "/login";
-}
+  <script>
+    function enviar() {
+      const tipo = document.getElementById("tipo").value;
+      const mes = document.getElementById("mes").value;
+      const valor = document.getElementById("valor").value;
 
-async function enviar() {
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get("code");
+      if (!valor || Number(valor) <= 0) {
+        alert("Informe um valor válido");
+        return;
+      }
 
-  const response = await fetch("/atualizar", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      tipo: tipo.value,
-      mes: mes.value,
-      valor: valor.value,
-      code
-    })
-  });
+      // Envia tudo na URL para o login Microsoft
+      const params = new URLSearchParams({ tipo, mes, valor });
+      window.location.href = "/login?" + params.toString();
+    }
 
-  if (!response.ok) {
-    const erro = await response.text();
-    alert("ERRO:\n" + erro);
-    return;
-  }
-
-  const data = await response.json();
-  alert("Excel atualizado ✅\nNovo valor: " + data.novoValor);
-}
-</script>
+    // Mensagem de sucesso após retorno do login
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("sucesso") === "1") {
+      alert("Excel atualizado ✅");
+      // limpa URL
+      window.history.replaceState({}, document.title, "/");
+    }
+  </script>
 
 </body>
 </html>
