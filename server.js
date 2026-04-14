@@ -14,6 +14,7 @@ app.use(express.static("public"));
 /* =========================================================
    LOGIN MICROSOFT
    ========================================================= */
+
 app.get("/login", (req, res) => {
   const url =
     "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize" +
@@ -21,7 +22,8 @@ app.get("/login", (req, res) => {
     "&response_type=code" +
     `&redirect_uri=${process.env.REDIRECT_URI}` +
     "&response_mode=query" +
-    "&scope=Files.ReadWrite offline_access";
+    "&scope=Files.ReadWrite offline_access" +
+    "&prompt=consent";
 
   res.redirect(url);
 });
