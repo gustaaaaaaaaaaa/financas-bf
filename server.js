@@ -9,8 +9,9 @@ app.use(express.json());
 app.use(express.static("public"));
 
 let accessToken = "";
+let workbookSession = "";
 
-// LOGIN MICROSOFT
+// LOGIN
 app.get("/login", (req, res) => {
   const url =
     "https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize" +
@@ -41,16 +42,32 @@ app.get("/callback", async (req, res) => {
     }
   );
 
-  const data = await tokenRes.json();
-  accessToken = data.access_token;
+  const tokenData = await tokenRes.json();
+  accessToken = tokenData.access_token;
+
+  // CRIAR SESSION DE WORKBOOK (OBRIGATÓRIO)
+  const sessionRes = await fetch(
+    `https://graph.microsoft.com/v1.0/me/drive/items/${process.env.FILE_ID}/workbook/createSession`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ persistChanges: true })
+    }
+  );
+
+  const sessionData = await sessionRes.json();
+  workbookSession = sessionData.id;
 
   res.redirect("/");
 });
 
 // ATUALIZAR EXCEL
 app.post("/atualizar", async (req, res) => {
-  if (!accessToken) {
-    return res.status(401).send({ error: "Usuário não autenticado" });
+  if (!accessToken || !workbookSession) {
+    return res.status(401).send({ error: "Sessão inválida" });
   }
 
   const { tipo, mes, valor } = req.body;
@@ -59,32 +76,44 @@ app.post("/atualizar", async (req, res) => {
   const coluna = String.fromCharCode(72 + Number(mes));
   const endereco = `${coluna}${linha}`;
 
-  const baseUrl =
+  const url =
     `https://graph.microsoft.com/v1.0/me/drive/items/${process.env.FILE_ID}` +
     `/workbook/worksheets('Abril')/range(address='${endereco}')`;
 
-  // LER VALOR ATUAL
-  const atualRes = await fetch(baseUrl, {
-    headers: { Authorization: `Bearer ${accessToken}` }
+  // LER VALOR
+  const atualRes = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "workbook-session-id": workbookSession
+    }
   });
+
+  if (!atualRes.ok) {
+    const err = await atualRes.text();
+    return res.status(500).send(err);
+  }
+
   const atual = await atualRes.json();
-
   const atualValor = atual.values?.[0]?.[0] || 0;
-
-  // SOMAR
   const novoValor = Number(atualValor) + Number(valor);
 
-  // GRAVAR
-  await fetch(baseUrl, {
+  // ESCREVER
+  const patchRes = await fetch(url, {
     method: "PATCH",
     headers: {
       Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      "workbook-session-id": workbookSession
     },
     body: JSON.stringify({ values: [[novoValor]] })
   });
 
-  res.send({ ok: true });
+  if (!patchRes.ok) {
+    const err = await patchRes.text();
+    return res.status(500).send(err);
+  }
+
+  res.send({ ok: true, novoValor });
 });
 
 app.listen(process.env.PORT || 3000);
